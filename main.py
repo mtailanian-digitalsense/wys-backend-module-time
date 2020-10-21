@@ -20,7 +20,7 @@ DB_IP = os.getenv('DB_IP_ADDRESS', '10.2.19.195')
 DB_PORT = os.getenv('DB_PORT', '3307')
 DB_SCHEMA = os.getenv('DB_SCHEMA', 'wys')
 APP_HOST = os.getenv('APP_HOST', '127.0.0.1')
-APP_PORT = os.getenv('APP_PORT', 5004)
+APP_PORT = os.getenv('APP_PORT', 5007)
 PROJECTS_MODULE_HOST = os.getenv('PROJECTS_MODULE_HOST', '127.0.0.1')
 PROJECTS_MODULE_PORT = os.getenv('PROJECTS_MODULE_PORT', 5000)
 PROJECTS_MODULE_API = os.getenv('PROJECTS_MODULE_API', '/api/projects/')
@@ -41,6 +41,8 @@ except Exception as terr:
 
 app.logger.setLevel(logging.DEBUG)
 db = SQLAlchemy(app)
+
+
 
 if __name__ == '__main__':
   app.run(host = APP_HOST, port = APP_PORT, debug = True)
