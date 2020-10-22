@@ -256,6 +256,7 @@ def token_required(f):
 
 
 @app.route("/api/times/spec", methods=['GET'])
+@token_required
 def spec():
     swag = swagger(app)
     swag['info']['version'] = "1.0"
@@ -268,6 +269,7 @@ def spec():
 
 
 @app.route('/api/times', methods=['POST'])
+@token_required
 def get_times():
     """
         Get Weeks to Move
@@ -342,6 +344,7 @@ def get_times():
     return jsonify({'weeks': randrange(3, 50, 1)})
 
 @app.route('/api/times/detailed', methods=['POST'])
+@token_required
 def get_times_detailed():
     """
         Get Weeks to Move
