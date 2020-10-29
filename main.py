@@ -58,6 +58,7 @@ app.logger.setLevel(logging.DEBUG)
 db = SQLAlchemy(app)
 Base = declarative_base()
 
+
 class TimeCategory(db.Model):
     """
     Attributes
@@ -81,7 +82,7 @@ class TimeCategory(db.Model):
         """
         Convert object to dictionary
         """
-        obj_dict ={
+        obj_dict = {
             "id": self.id,
             "code": self.code,
             "name": self.name,
@@ -120,12 +121,12 @@ class TimeSubcategory(db.Model):
         Convert object to dictionary
         """
         obj_dict = {
-        'id': self.id,
-        'code': self.code,
-        'name': self.name,
-        'is_milestone': self.is_milestone,
-        'position': self.position,
-        'category_id': self.category_id
+            'id': self.id,
+            'code': self.code,
+            'name': self.name,
+            'is_milestone': self.is_milestone,
+            'position': self.position,
+            'category_id': self.category_id
         }
         return obj_dict
 
@@ -134,8 +135,11 @@ class TimeSubcategory(db.Model):
             Return object serialized to json
         """
         return jsonify(self.to_dict())
+
+
 db.create_all()
 db.session.commit()
+
 
 def seed():
     try:
@@ -156,7 +160,7 @@ def seed():
         subcat6 = TimeSubcategory(name="Aprobación Cliente",
                                   code=SubCategoryConstants.APROBACION_CLIENTE, position=6)
         subcat7 = TimeSubcategory(name="Anteproyecto",
-                                  code=SubCategoryConstants.ANTEPROYECTO,position=7)
+                                  code=SubCategoryConstants.ANTEPROYECTO, position=7)
         subcat8 = TimeSubcategory(name="Aprobación Cliente",
                                   code=SubCategoryConstants.APROBACION_CLIENTE_2, position=8)
         subcat9 = TimeSubcategory(name="Proyecto Ejecutivo",
@@ -210,7 +214,6 @@ def seed():
         db.session.add(cat6)
         db.session.add(cat7)
 
-
         # Arriendo
         cat1.subcategories.append(subcat1)
         cat1.subcategories.append(subcat2)
@@ -254,12 +257,13 @@ def seed():
     except SQLAlchemyError as e:
         logging.error(f"{e}")
         exit()
+
+
 db.create_all()
 seed()
 
 
 def generate_dict(dict_values: dict, category_code: str):
-
     category: TimeCategory = TimeCategory.query \
         .filter(TimeCategory.code == category_code) \
         .first()
@@ -273,6 +277,7 @@ def generate_dict(dict_values: dict, category_code: str):
     for sub_cat in category_dict["subcategories"]:
         sub_cat_code = sub_cat['code']
         if sub_cat_code not in dict_values:
+            logging.warning(f'{sub_cat_code} is not a valid subcategory code')
             sub_cat['weeks'] = 0
         else:
             sub_cat['weeks'] = dict_values[sub_cat_code]
@@ -333,6 +338,27 @@ def calc_diseno(client_aprov: int, m2: float):
     return generate_dict(dict_values, CategoryConstants.DISENO)
 
 
+def calc_weeks_per_m2_construccion(m2: int):
+    if m2 <= 300:
+        return 8
+    elif 300 < m2 <= 600:
+        return 9
+    elif 600 < m2 <= 800:
+        return 11
+    elif 800 < m2 <= 1200:
+        return 13
+    elif 1200 < m2 <= 1500:
+        return 15
+    elif 1500 < m2 <= 2000:
+        return 17
+    elif 2000 < m2 <= 2500:
+        return 21
+    elif 2500 < m2 <= 3500:
+        return 24
+    else:
+        return 26
+
+
 def calc_permisos(municipality_agility: int, building_agility: int):
     """
     Calc permisos category
@@ -356,6 +382,75 @@ def calc_licitacion(isDirect: bool):
         SubCategoryConstants.ADJUDICACION_Y_FIRMA: 0
     }
     return generate_dict(dict_values, CategoryConstants.LICITACION)
+
+
+def calc_construccion(m2: int, shift: str, demolition_required: bool, construction_mod: str):
+    # Mapping Weeks
+    shift_map = {
+        'daytime': 1,
+        'nightime': 1.3,
+        'free': 1
+    }
+
+    construction_mod_map = {
+        'const_adm': 1.2,
+        'turnkey': 1,
+        'general_contractor': 1.2
+    }
+    weeks = {}
+
+    # Weeks per m2
+
+    weeks['m2'] = calc_weeks_per_m2_construccion(m2)
+
+    # Shift Mode
+    if shift not in shift_map:
+        logging.warning(f'{shift} isn\'t a valid shift mode')
+        weeks['shift'] = 1
+    else:
+        weeks['shift'] = shift_map[shift]
+
+    # Demolition required
+    weeks['demolition'] = 3 if demolition_required else 0
+
+    # Construction Mode
+    if construction_mod not in construction_mod_map:
+        logging.warning(f'{construction_mod} isn\'t a valid procurement ')
+        weeks['const_mod'] = 1
+    else:
+        weeks['const_mod'] = construction_mod_map[construction_mod]
+
+    total_weeks = (weeks['m2'] * weeks['shift'] * weeks['const_mod']) + weeks['demolition']
+
+    dict_values = {
+        SubCategoryConstants.CONSTRUCION: total_weeks
+    }
+
+    return generate_dict(dict_values, CategoryConstants.CONSTRUCCION)
+
+
+def calc_mudanza():
+    dict_values = {
+        SubCategoryConstants.MUDANZA: 0,
+        SubCategoryConstants.LOGISTICA: 2
+    }
+    return generate_dict(dict_values, CategoryConstants.MUDANZA)
+
+
+def calc_marcha_blanca(m2: int):
+    weeks = 0
+    if m2 <= 1000:
+        weeks = 2
+    elif 1000 < m2 <= 3500:
+        weeks = 3
+    else:
+        weeks = 4
+
+    dict_values = {
+        SubCategoryConstants.MARCHA_BLANCA: weeks
+    }
+
+    return generate_dict(dict_values, CategoryConstants.OCUPACION)
 
 
 def token_required(f):
@@ -479,8 +574,8 @@ def get_times():
 
     # Calc Rent Category
 
-
     return jsonify({'weeks': randrange(3, 50, 1)})
+
 
 @app.route('/api/times/detailed', methods=['POST'])
 @token_required
@@ -554,7 +649,7 @@ def get_times_detailed():
         if param not in request.json.keys():
             return f"{param} isn't in body", 400
 
-    categories= TimeCategory.query.all()
+    categories = TimeCategory.query.all()
     categories_dict = [category.to_dict() for category in categories]
 
     for category in categories_dict:

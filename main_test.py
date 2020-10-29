@@ -1,7 +1,8 @@
 import unittest
 import os
 from main import TimeCategory, TimeSubcategory, seed,\
-    db, app, calc_arriendo, calc_diseno
+    db, app, calc_arriendo, calc_diseno, calc_licitacion,\
+    SubCategoryConstants, calc_construccion, calc_mudanza, calc_marcha_blanca
 
 
 class MyTestCase(unittest.TestCase):
@@ -36,6 +37,41 @@ class MyTestCase(unittest.TestCase):
     def test_diseno(self):
         seed()
         result = calc_diseno(2, 500)
+        self.assertEqual(result is not {}, True)
+
+    def test_licitacion(self):
+        seed()
+        result = calc_licitacion(True)
+        self.assertEqual(result is not {}, True)
+        subcat : dict
+        for subcat in result['subcategories']:
+            self.assertEqual(subcat['weeks'], 0)
+
+        result = calc_licitacion(False)
+
+        dict_values = {
+            SubCategoryConstants.LICITACION_OBRA: 4,
+            SubCategoryConstants.NEGOCIACION: 2,
+            SubCategoryConstants.ADJUDICACION_Y_FIRMA: 0
+        }
+
+        for subcat in result['subcategories']:
+            weeks = dict_values[subcat['code']]
+            self.assertEqual(weeks, subcat['weeks'])
+
+    def test_construccion(self):
+        seed()
+        result = calc_construccion(5000, 'free', demolition_required=True, construction_mod='turnkey')
+        self.assertEqual(result is not {}, True)
+
+    def test_mudanza(self):
+        seed()
+        result = calc_mudanza()
+        self.assertEqual(result is not {}, True)
+
+    def test_marcha_blanca(self):
+        seed()
+        result = calc_marcha_blanca(5000)
         self.assertEqual(result is not {}, True)
 
 if __name__ == '__main__':
