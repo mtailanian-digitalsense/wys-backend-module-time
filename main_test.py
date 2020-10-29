@@ -1,6 +1,7 @@
 import unittest
 import os
-from main import TimeCategory, TimeSubcategory, seed, db, app
+from main import TimeCategory, TimeSubcategory, seed,\
+    db, app, calc_arriendo, calc_diseno
 
 
 class MyTestCase(unittest.TestCase):
@@ -27,6 +28,15 @@ class MyTestCase(unittest.TestCase):
         db.session.remove()
         db.drop_all()
 
+    def test_arriendo(self):
+        seed()
+        result = calc_arriendo()
+        self.assertEqual(result is not None, True)
+
+    def test_diseno(self):
+        seed()
+        result = calc_diseno(2, 500)
+        self.assertEqual(result is not {}, True)
 
 if __name__ == '__main__':
     unittest.main()

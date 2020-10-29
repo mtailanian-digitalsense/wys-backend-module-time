@@ -2,6 +2,7 @@ import jwt
 import os
 import logging
 from random import randrange
+from constant import SubCategoryConstants, CategoryConstants
 import requests
 import json
 from sqlalchemy.exc import SQLAlchemyError
@@ -142,32 +143,64 @@ def seed():
         if len(categories) > 0:
             return
 
-        subcat1 = TimeSubcategory(name="Busqueda", code="BUSQUEDA", position=1)
-        subcat2 = TimeSubcategory(name="Negociación de Arriendo", code="NEGOCIACION ARRIENDO", position=2)
-        subcat3 = TimeSubcategory(name="Firma de Contrato", code="FIRMA CONTRATO", position=3)
-        subcat4 = TimeSubcategory(name="Levantamiento de Requerimientos", code="LEVANTAMIENTO REQ", position=4)
-        subcat5 = TimeSubcategory(name="Diseño Preliminar", code="DISENO PRELIMINAR", position=5)
-        subcat6 = TimeSubcategory(name="Aprobación Cliente", code="APROBACION CLIENTE", position=6)
-        subcat7 = TimeSubcategory(name="Anteproyecto", code="ANTEPROYECTO", position=7)
-        subcat8 = TimeSubcategory(name="Aprobación Cliente", code="APROBACION CLIENTE 2", position=7)
-        subcat9 = TimeSubcategory(name="Proyecto Ejecutivo", code="PROYECTO EJECUTIVO", position=8)
-        subcat10 = TimeSubcategory(name="Presentación Municipal", code="PRESENTACION MUNICIPAL", position=9)
-        subcat11 = TimeSubcategory(name="Presentación Admin. del Edificio", code="PRES ADM EDIFICIO", position=10)
-        subcat12 = TimeSubcategory(name="Licitación de obra", code="LICITACION OBRA", position=11)
-        subcat13 = TimeSubcategory(name="Negociación", code="NEGOCIACION", position=12)
-        subcat14 = TimeSubcategory(name="Adjudicación y firma", code="ADJUDICACION Y FIRMA", position=13)
-        subcat15 = TimeSubcategory(name="Construcción", code="CONSTRUCION", position=14)
-        subcat16 = TimeSubcategory(name="Logistica de Mudanza", code="LOGISTICA", position=15)
-        subcat17 = TimeSubcategory(name="Mudanza", code="MUDANZA", position=16)
-        subcat18 = TimeSubcategory(name="Marcha Blanca", code="MARCHA BLANCA", position=16)
+        subcat1 = TimeSubcategory(name="Busqueda",
+                                  code=SubCategoryConstants.BUSQUEDA, position=1)
+        subcat2 = TimeSubcategory(name="Negociación de Arriendo",
+                                  code=SubCategoryConstants.NEGOCIACION_ARRIENDO, position=2)
+        subcat3 = TimeSubcategory(name="Firma de Contrato",
+                                  code=SubCategoryConstants.FIRMA_CONTRATO, position=3)
+        subcat4 = TimeSubcategory(name="Levantamiento de Requerimientos",
+                                  code=SubCategoryConstants.LEVANTAMIENTO_REQ, position=4)
+        subcat5 = TimeSubcategory(name="Diseño Preliminar",
+                                  code=SubCategoryConstants.DISENO_PRELIMINAR, position=5)
+        subcat6 = TimeSubcategory(name="Aprobación Cliente",
+                                  code=SubCategoryConstants.APROBACION_CLIENTE, position=6)
+        subcat7 = TimeSubcategory(name="Anteproyecto",
+                                  code=SubCategoryConstants.ANTEPROYECTO,position=7)
+        subcat8 = TimeSubcategory(name="Aprobación Cliente",
+                                  code=SubCategoryConstants.APROBACION_CLIENTE_2, position=8)
+        subcat9 = TimeSubcategory(name="Proyecto Ejecutivo",
+                                  code=SubCategoryConstants.PROYECTO_EJECUTIVO, position=9)
+        subcat10 = TimeSubcategory(name="Presentación Municipal",
+                                   code=SubCategoryConstants.PRESENTACION_MUNICIPAL, position=10)
+        subcat11 = TimeSubcategory(name="Presentación Admin. del Edificio",
+                                   code=SubCategoryConstants.PRES_ADM_EDIFICIO, position=11)
+        subcat12 = TimeSubcategory(name="Licitación de obra",
+                                   code=SubCategoryConstants.LICITACION_OBRA, position=12)
+        subcat13 = TimeSubcategory(name="Negociación",
+                                   code=SubCategoryConstants.NEGOCIACION, position=13)
+        subcat14 = TimeSubcategory(name="Adjudicación y firma",
+                                   code=SubCategoryConstants.ADJUDICACION_Y_FIRMA, position=14)
+        subcat15 = TimeSubcategory(name="Construcción",
+                                   code=SubCategoryConstants.CONSTRUCION, position=15)
+        subcat16 = TimeSubcategory(name="Logistica de Mudanza",
+                                   code=SubCategoryConstants.LOGISTICA, position=16)
+        subcat17 = TimeSubcategory(name="Mudanza",
+                                   code=SubCategoryConstants.MUDANZA, position=17)
+        subcat18 = TimeSubcategory(name="Marcha Blanca", position=18,
+                                   code=SubCategoryConstants.MARCHA_BLANCA)
 
-        cat1 = TimeCategory(name="ARRIENDO", code="ARRIENDO")
-        cat2 = TimeCategory(name="DISEÑO", code="DISEÑO")
-        cat3 = TimeCategory(name="PERMISOS", code="PERMISOS")
-        cat4 = TimeCategory(name="LICITACIÓN", code="LICITACIÓN")
-        cat5 = TimeCategory(name="CONSTRUCCIÓN", code="CONSTRUCCIÓN")
-        cat6 = TimeCategory(name="MUDANZA", code="MUDANZA")
-        cat7 = TimeCategory(name="POST OCUPACIÓN", code="OCUPACIÓN")
+        cat1 = TimeCategory(name="ARRIENDO",
+                            code=CategoryConstants.ARRIENDO,
+                            position=1)
+        cat2 = TimeCategory(name="DISEÑO",
+                            code=CategoryConstants.DISENO,
+                            position=2)
+        cat3 = TimeCategory(name="PERMISOS",
+                            code=CategoryConstants.PERMISOS,
+                            position=3)
+        cat4 = TimeCategory(name="LICITACIÓN",
+                            code=CategoryConstants.LICITACION,
+                            position=4)
+        cat5 = TimeCategory(name="CONSTRUCCIÓN",
+                            code=CategoryConstants.CONSTRUCCION,
+                            position=5)
+        cat6 = TimeCategory(name="MUDANZA",
+                            code=CategoryConstants.MUDANZA,
+                            position=6)
+        cat7 = TimeCategory(name="POST OCUPACIÓN",
+                            code=CategoryConstants.OCUPACION,
+                            position=7)
 
         db.session.add(cat1)
         db.session.add(cat2)
@@ -223,6 +256,107 @@ def seed():
         exit()
 db.create_all()
 seed()
+
+
+def generate_dict(dict_values: dict, category_code: str):
+
+    category: TimeCategory = TimeCategory.query \
+        .filter(TimeCategory.code == category_code) \
+        .first()
+
+    if category is None:
+        return {}
+
+    # Build Dictionary
+    category_dict = category.to_dict()
+    sub_cat: dict
+    for sub_cat in category_dict["subcategories"]:
+        sub_cat_code = sub_cat['code']
+        if sub_cat_code not in dict_values:
+            sub_cat['weeks'] = 0
+        else:
+            sub_cat['weeks'] = dict_values[sub_cat_code]
+    return category_dict
+
+
+def calc_arriendo():
+    """
+    Calc Arriendo Weeks
+    return: Category dict corresponding to "Arriendo"
+    """
+
+    # Build dict with weeks by subcategories
+    dict_values = {SubCategoryConstants.BUSQUEDA: 2,
+                   SubCategoryConstants.NEGOCIACION_ARRIENDO: 1,
+                   SubCategoryConstants.FIRMA_CONTRATO: 0
+                   }
+
+    return generate_dict(dict_values, CategoryConstants.ARRIENDO)
+
+
+def calc_proyecto_ejecutivo(m2):
+    if m2 <= 300:
+        return 4
+    elif 300 < m2 <= 600:
+        return 4
+    elif 600 < m2 <= 800:
+        return 5
+    elif 800 < m2 <= 1200:
+        return 5
+    elif 1200 < m2 <= 1500:
+        return 6
+    elif 1500 < m2 <= 2000:
+        return 6
+    elif 2000 < m2 <= 2500:
+        return 7
+    elif 2500 < m2 <= 3500:
+        return 7
+    else:
+        return 8
+
+
+def calc_diseno(client_aprov: int, m2: float):
+    """
+    Calc diseno category
+    return: dict with durations.
+    """
+    # Build dict with subcategories durations in weeks
+    dict_values = {
+        SubCategoryConstants.LEVANTAMIENTO_REQ: 1,
+        SubCategoryConstants.DISENO_PRELIMINAR: 4 + client_aprov,
+        SubCategoryConstants.APROBACION_CLIENTE: 0,
+        SubCategoryConstants.ANTEPROYECTO: 4 + client_aprov,
+        SubCategoryConstants.APROBACION_CLIENTE_2: 0,
+        SubCategoryConstants.PROYECTO_EJECUTIVO: calc_proyecto_ejecutivo(m2)
+    }
+
+    return generate_dict(dict_values, CategoryConstants.DISENO)
+
+
+def calc_permisos(municipality_agility: int, building_agility: int):
+    """
+    Calc permisos category
+    return: dict with durations
+    """
+    dict_values = {
+        SubCategoryConstants.PRESENTACION_MUNICIPAL: municipality_agility,
+        SubCategoryConstants.PRES_ADM_EDIFICIO: building_agility
+    }
+    return generate_dict(dict_values, CategoryConstants.PERMISOS)
+
+
+def calc_licitacion(isDirect: bool):
+    """
+    Calc licitacion category
+    return: dict with durations
+    """
+    dict_values = {
+        SubCategoryConstants.LICITACION_OBRA: 0 if isDirect else 4,
+        SubCategoryConstants.NEGOCIACION: 0 if isDirect else 2,
+        SubCategoryConstants.ADJUDICACION_Y_FIRMA: 0
+    }
+    return generate_dict(dict_values, CategoryConstants.LICITACION)
+
 
 def token_required(f):
     @wraps(f)
@@ -340,6 +474,11 @@ def get_times():
     for param in req_params:
         if param not in request.json.keys():
             return f"{param} isn't in body", 400
+
+    # Create weeks sum
+
+    # Calc Rent Category
+
 
     return jsonify({'weeks': randrange(3, 50, 1)})
 
