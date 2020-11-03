@@ -571,11 +571,82 @@ def get_times():
             return f"{param} isn't in body", 400
 
     # Create weeks sum
+    weeks = 0
+    # Arriendo
+    for sub_cat in calc_arriendo()["subcategories"]:
+        weeks += sub_cat['weeks']
 
-    # Calc Rent Category
+    # Diseno
+    map_client_agility = {
+        'high': 0,
+        'normal': 1,
+        'low': 2
+    }
+    client_agility = 0
+    if request.json['client_agility'] in map_client_agility:
+        client_agility = map_client_agility[request.json['client_agility']]
+    else:
+        logging.warning(f'{request.json["client_agility"]} is not a valid key')
 
-    return jsonify({'weeks': randrange(3, 50, 1)})
+    for sub_cat in calc_diseno(client_agility, request.json['m2'])['subcategories']:
+        weeks += sub_cat['weeks']
 
+    # Permisos
+    municipality_agility_map = {
+        'low': 8,
+        'normal': 6,
+        'high': 4
+    }
+
+    building_agility_map = {
+        'low': 6,
+        'normal': 4,
+        'high': 2
+    }
+    mun_agility = 0
+    if request.json['mun_agility'] in municipality_agility_map:
+        mun_agility += municipality_agility_map[request.json['mun_agility']]
+    else:
+        logging.warning(f'{request.json["mun_agility"]} is not a valid key')
+
+    building_agility = 0
+    if request.json['adm_agility'] in building_agility_map:
+        building_agility += building_agility_map[request.json['adm_agility']]
+    else:
+        logging.warning(f'{request.json["adm_agility"]} is not a valid key')
+
+    for sub_cat in calc_permisos(mun_agility, building_agility)["subcategories"]:
+        weeks += sub_cat['weeks']
+
+    # Licitacion
+    procurement_process = request.json['procurement_process']
+    is_direct = False
+    if procurement_process == "direct":
+        is_direct = True
+
+    for sub_cat in calc_licitacion(is_direct)["subcategories"]:
+        weeks += sub_cat['weeks']
+
+
+    # Construccion
+    m2: float = request.json['m2']
+    demolition_needed: bool = request.json['demolitions']
+    construction_times: str = request.json['constructions_times']
+    construction_mod: str = request.json['construction_mod']
+
+    for sub_cat in calc_construccion(m2, construction_times,
+                               demolition_needed, construction_mod)['subcategories']:
+        weeks += sub_cat['weeks']
+
+    # mudanza
+    for sub_cat in calc_mudanza()['subcategories']:
+        weeks += sub_cat['weeks']
+
+    # post ocupacion
+    for sub_cat in calc_marcha_blanca(m2)['subcategories']:
+        weeks += sub_cat['weeks']
+
+    return jsonify({'weeks': weeks})
 
 @app.route('/api/times/detailed', methods=['POST'])
 @token_required
