@@ -2,7 +2,7 @@ import unittest
 import os
 from main import TimeCategory, TimeSubcategory, seed,\
     db, app, calc_arriendo, calc_diseno, calc_licitacion,\
-    SubCategoryConstants, calc_construccion, calc_mudanza, calc_marcha_blanca
+    SubCategoryConstants, calc_construccion, calc_mudanza, calc_marcha_blanca, TimeGen
 
 
 class MyTestCase(unittest.TestCase):
@@ -73,6 +73,25 @@ class MyTestCase(unittest.TestCase):
         seed()
         result = calc_marcha_blanca(5000)
         self.assertEqual(result is not {}, True)
+
+    def test_gen(self):
+
+        gen = TimeGen(
+            adm_agility="low",
+            client_agility="low",
+            mun_agility="medium",
+            construction_mod="low",
+            constructions_times="medium",
+            procurement_process="high",
+            demolitions="high",
+            m2=40.5
+        )
+
+        db.session.add(gen)
+        db.session.commit()
+
+        self.assertEqual(gen.id != 0, True)
+
 
 if __name__ == '__main__':
     unittest.main()

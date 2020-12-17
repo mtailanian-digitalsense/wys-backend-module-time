@@ -58,6 +58,30 @@ app.logger.setLevel(logging.DEBUG)
 db = SQLAlchemy(app)
 Base = declarative_base()
 
+class TimeGen(db.Model):
+    """
+    Attributes
+    ---
+    id: Input identifictaion number
+    adm_agility: low, normal, high
+    client_agility:  low, normal, high
+    mun_agility: low, normal, high
+    construction_mod:  const_adm, turnkey, general_contractor
+    constructions_times: daytime, nightime, free
+    procurement_process:  direct, bidding
+    demolitions: yes, no
+    "m2": 569.0
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    adm_agility = db.Column(db.String(45))
+    client_agility = db.Column(db.String(45))
+    mun_agility = db.Column(db.String(45))
+    construction_mod = db.Column(db.String(45))
+    constructions_times = db.Column(db.String(45))
+    procurement_process = db.Column(db.String(45))
+    demolitions = db.Column(db.String(45))
+    m2 = db.Column(db.Float)
+
 
 class TimeCategory(db.Model):
     """
