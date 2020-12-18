@@ -140,15 +140,16 @@ Port: 8087
 **Body**:
 ```json
 {
-    "project_id": 1
+    "project_id": 1,
     "adm_agility": "low", // low, normal, high
     "client_agility": "normal", // low, normal, high
     "mun_agility": "high", // low, normal, high
     "construction_mod": "const_adm", // const_adm, turnkey, general_contractor 
     "constructions_times": "daytime",// daytime, nightime, free
     "procurement_process": "direct", // direct, bidding
-    "demolitions": "yes" //yes, no
-    "m2": 569.0
+    "demolitions": "yes", //yes, no
+    "m2": 569.0,
+    "weeks": 0 //weeks to move
 }
 ```
 
@@ -217,7 +218,8 @@ Port: 8087
     "constructions_times": "daytime",// daytime, nightime, free
     "procurement_process": "direct", // direct, bidding
     "demolitions": "yes" //yes, no
-    "m2": 569.0
+    "m2": 569.0,
+    "weeks": 5
 }
 ````
 ### Error Responses

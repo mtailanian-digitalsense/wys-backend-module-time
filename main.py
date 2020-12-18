@@ -81,6 +81,31 @@ class TimeGen(db.Model):
     procurement_process = db.Column(db.String(45))
     demolitions = db.Column(db.String(45))
     m2 = db.Column(db.Float)
+    weeks = db.Column(db.Float)
+
+    def to_dict(self):
+        """
+        Convert object to dictionary
+        """
+        obj_dict = {
+            'id': self.id,
+            'adm_agility': self.adm_agility,
+            'client_agility': self.client_agility,
+            'mun_agility': self.mun_agility,
+            'construction_mod': self.construction_mod,
+            'constructions_times': self.constructions_times,
+            'procurement_process': self.procurement_process,
+            'demolitions': self.demolitions,
+            'm2': self.m2,
+            'weeks': self.weeks
+        }
+        return obj_dict
+
+    def serialize(self):
+        """
+            Return object serialized to json
+        """
+        return jsonify(self.to_dict())
 
 
 class TimeCategory(db.Model):
@@ -755,6 +780,125 @@ def get_times_detailed():
             sub_cat["weeks"] = randrange(3, 8, 1)
 
     return jsonify(categories_dict)
+
+
+@app.route('/api/times/save', methods=['POST'])
+def save_times():
+    """
+        Save times
+        ---
+        consumes:
+        - "application/json"
+        tags:
+        - Times
+        produces:
+        - application/json
+        required:
+            - project_id
+            - adm_agility
+            - client_agility
+            - mun_agility
+            - construction_mod
+            - constructions_times
+            - procurement_process
+            - demolitions
+            - m2
+        parameters:
+        - in: body
+          name: body
+          properties:
+            project_id:
+                type: number
+                format: integer
+            adm_agility:
+                type: string
+                description:  Building Administration Agility
+                enum: [low, normal, high]
+            client_agility:
+                type: string
+                description:  Client Agility
+                enum: [low, normal, high]
+            mun_agility:
+                type: string
+                description:  Municipality Agility
+                enum: [low, normal, high]
+            construction_mod:
+                type: string
+                description:  Construction Mode
+                enum: [const_adm, turnkey, general_contractor]
+            constructions_times:
+                type: string
+                description:  Construction Mode
+                enum: [daytime, nightime, free]
+            procurement_process:
+                type: string
+                description:  Construction Mode
+                enum: [direct, bidding]
+            demolitions:
+                type: boolean
+                description: Demolitions needed
+            m2:
+                type: number
+                format: float
+            weeks:
+                type: number
+                format: float
+                description: weeks to move
+        responses:
+            200:
+                description: Return weeks
+            400:
+                description: Data or missing field in body.
+            404:
+                description: Data object not found.
+            500:
+                description: Internal server error.
+    """
+    req_params = {'adm_agility', 'client_agility', 'mun_agility', 'construction_mod',
+                  'constructions_times', 'procurement_process', 'demolitions', 'm2', 'project_id', 'weeks'}
+
+    for param in req_params:
+        if param not in request.json.keys():
+            return f"{param} isn't in body", 400
+    token = request.headers.get('Authorization', None)
+
+    gen = TimeGen(
+        weeks=request.json['weeks'],
+        adm_agility=request.json['adm_agility'],
+        client_agility=request.json['client_agility'],
+        mun_agility=request.json['mun_agility'],
+        construction_mod=request.json['construction_mod'],
+        constructions_times=request.json['constructions_times'],
+        procurement_process=request.json['procurement_process'],
+        demolitions=request.json['demolitions'],
+        m2=request.json['m2']
+    )
+    data = request.json
+
+    try:
+        db.session.add(gen)
+        db.session.commit()
+    except SQLAlchemyError as exp:
+        db.session.rollback()
+        logging.error(f"Database Error {exp}")
+        return f"Database Error {exp}", 500
+
+    project = update_project_by_id(data['project_id'], {'time_gen_id': gen.id}, token)
+    if project is not None:
+        project['m2_generated_data'] = gen.to_dict()
+        return jsonify(project), 201
+    return "Cannot update the Project because doesn't exist", 404
+
+
+def update_project_by_id(project_id, data, token):
+  headers = {'Authorization': token}
+  api_url = PROJECTS_URL + PROJECTS_MODULE_API + str(project_id)
+  rv = requests.put(api_url, json=data, headers=headers)
+  if rv.status_code == 200:
+    return json.loads(rv.text)
+  elif rv.status_code == 500:
+    raise Exception("Cannot connect to the projects module")
+  return None
 
 
 if __name__ == '__main__':
