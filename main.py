@@ -885,7 +885,7 @@ def save_times():
 
     project = update_project_by_id(data['project_id'], {'time_gen_id': gen.id}, token)
     if project is not None:
-        project['m2_generated_data'] = gen.to_dict()
+        project['time_generated_data'] = gen.to_dict()
         return jsonify(project), 201
     return "Cannot update the Project because doesn't exist", 404
 

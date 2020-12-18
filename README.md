@@ -19,7 +19,7 @@ Port: 8087
     "construction_mod": "const_adm", // const_adm, turnkey, general_contractor 
     "constructions_times": "daytime",// daytime, nightime, free
     "procurement_process": "direct", // direct, bidding
-    "demolitions": "yes" //yes, no
+    "demolitions": "yes", //yes, no
     "m2": 569.0
 }
 ```
@@ -67,7 +67,7 @@ Port: 8087
     "mun_agility": "high", // low, normal, high
     "construction_mod": "const_adm", // const_adm, turnkey, general_contractor 
     "constructions_times": "daytime",// daytime, nightime, free
-    "procurement_process": "direct" // direct, bidding
+    "procurement_process": "direct", // direct, bidding
     "demolitions": "yes", //yes, no
     "m2": 569.0
 }
@@ -167,7 +167,7 @@ Port: 8087
     "construction_mod": "const_adm", // const_adm, turnkey, general_contractor 
     "constructions_times": "daytime",// daytime, nightime, free
     "procurement_process": "direct", // direct, bidding
-    "demolitions": "yes" //yes, no
+    "demolitions": "yes", //yes, no
     "m2": 569.0
 }
 
@@ -217,7 +217,7 @@ Port: 8087
     "construction_mod": "const_adm", // const_adm, turnkey, general_contractor 
     "constructions_times": "daytime",// daytime, nightime, free
     "procurement_process": "direct", // direct, bidding
-    "demolitions": "yes" //yes, no
+    "demolitions": "yes", //yes, no
     "m2": 569.0,
     "weeks": 5
 }
