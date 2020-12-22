@@ -900,6 +900,38 @@ def update_project_by_id(project_id, data, token):
     raise Exception("Cannot connect to the projects module")
   return None
 
+@app.route('/api/times/saved/<id>', methods=['GET'])
+def get_save_times(id):
+    """
+        Get saved time info.
+        ---
+
+          parameters:
+            - in: path
+              name: id
+              type: integer
+              description: Saved ID
+          tags:
+            - Times
+          responses:
+            200:
+              description: Saved Time Object.
+            404:
+              description: Not Found.
+            500:
+              description: Internal Server error or Database error
+    """
+
+    try:
+        timegen = TimeGen.query.filter(TimeGen.id == id).first()
+        if timegen is not None:
+            return timegen.serialize()
+        else:
+            return {},404
+    except Exception as exp:
+        logging.error(f"Database Exception: {exp}")
+        return f"Database Exception: {exp}", 500
+
 
 if __name__ == '__main__':
     app.run(host=APP_HOST, port=APP_PORT, debug=True)
