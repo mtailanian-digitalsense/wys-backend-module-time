@@ -1,10 +1,10 @@
-import jwt
 import os
 import logging
 from random import randrange
 from constant import SubCategoryConstants, CategoryConstants
 import requests
 import json
+import jwt
 from sqlalchemy.exc import SQLAlchemyError
 from flask import Flask, jsonify, abort, request
 from flask_sqlalchemy import SQLAlchemy
