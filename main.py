@@ -1,6 +1,7 @@
 import jwt
 import os
 import logging
+import pprint
 from random import randrange
 from constant import SubCategoryConstants, CategoryConstants
 import requests
@@ -862,28 +863,49 @@ def save_times():
             return f"{param} isn't in body", 400
     token = request.headers.get('Authorization', None)
 
-    gen = TimeGen(
-        weeks=request.json['weeks'],
-        adm_agility=request.json['adm_agility'],
-        client_agility=request.json['client_agility'],
-        mun_agility=request.json['mun_agility'],
-        construction_mod=request.json['construction_mod'],
-        constructions_times=request.json['constructions_times'],
-        procurement_process=request.json['procurement_process'],
-        demolitions=request.json['demolitions'],
-        m2=request.json['m2']
-    )
-    data = request.json
 
     try:
+        token = request.headers.get('Authorization', None)
+        headers = {'Authorization': token}
+        resp = requests.get(
+            f'{PROJECTS_URL}{PROJECTS_MODULE_API}'
+            f'/{request.json["project_id"]}', headers=headers)
+        project = json.loads(resp.content.decode('utf-8'))
+    except Exception as exp:
+        logging.error(f"Error getting Project {exp}")#cambiar mensaje de exp
+        return f"Error getting project {exp}", 500
+
+    gen: TimeGen = TimeGen.query \
+        .filter(TimeGen.id == project["time_gen_id"]) \
+        .first()
+    
+    time_gen_id: int
+    try: 
+        if gen is None:
+            gen = TimeGen()
+        
+        gen.weeks=request.json['weeks'],
+        gen.adm_agility=request.json['adm_agility'],
+        gen.client_agility=request.json['client_agility'],
+        gen.mun_agility=request.json['mun_agility'],
+        gen.construction_mod=request.json['construction_mod'],
+        gen.constructions_times=request.json['constructions_times'],
+        gen.procurement_process=request.json['procurement_process'],
+        gen.demolitions=request.json['demolitions'],
+        gen.m2=request.json['m2']
+
         db.session.add(gen)
         db.session.commit()
-    except SQLAlchemyError as exp:
-        db.session.rollback()
-        logging.error(f"Database Error {exp}")
-        return f"Database Error {exp}", 500
 
-    project = update_project_by_id(data['project_id'], {'time_gen_id': gen.id}, token)
+        time_gen_id = gen.id
+
+    except Exception as exp:
+        logging.error(f"Error in database {exp}")
+        db.session.rollback()
+        return jsonify({'message': f"Error in database {exp}"}), 500
+  
+
+    project = update_project_by_id(request.json["project_id"], {'time_gen_id': time_gen_id}, token)
     if project is not None:
         project['time_generated_data'] = gen.to_dict()
         return jsonify(project), 201
@@ -900,17 +922,18 @@ def update_project_by_id(project_id, data, token):
     raise Exception("Cannot connect to the projects module")
   return None
 
-@app.route('/api/times/saved/<id>', methods=['GET'])
-def get_save_times(id):
+@app.route('/api/times/saved/<project_id>', methods=['GET'])
+@token_required
+def get_save_times(project_id):
     """
         Get saved time info.
         ---
 
           parameters:
             - in: path
-              name: id
+              name: project_id
               type: integer
-              description: Saved ID
+              description: Saved Project ID
           tags:
             - Times
           responses:
@@ -921,9 +944,21 @@ def get_save_times(id):
             500:
               description: Internal Server error or Database error
     """
+ 
+    try:
+        token = request.headers.get('Authorization', None)
+        headers = {'Authorization': token}
+        resp = requests.get(
+            f'{PROJECTS_URL}{PROJECTS_MODULE_API}'
+            f'{project_id}', headers=headers)
+        project = json.loads(resp.content.decode('utf-8'))
+    except Exception as exp:
+        logging.error(f"Error getting Project {exp}")#cambiar mensaje de exp
+        return f"Error getting project {exp}", 500
 
     try:
-        timegen = TimeGen.query.filter(TimeGen.id == id).first()
+        
+        timegen = TimeGen.query.filter(TimeGen.id == project["time_gen_id"]).first()
         if timegen is not None:
             return timegen.serialize()
         else:
