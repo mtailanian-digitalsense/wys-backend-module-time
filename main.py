@@ -547,6 +547,42 @@ def spec():
     return jsonify(swag)
 
 
+@app.route('/api/times/data/<time_gen_id>', methods = ['GET'])
+@token_required
+def get_time_by_time_gen_id(time_gen_id):
+    """
+        Get time of a project in times module by time gen ID.
+        ---
+        parameters:
+          - in: path
+            name: time_gen_id
+            type: integer
+            description: Time gen ID
+        tags:
+        - "Times"
+        responses:
+          200:
+            description: time information.
+          404:
+            description: Record Not Found.
+          500:
+            description: "Database error"
+    """
+    try:
+        token = request.headers.get('Authorization', None)
+        
+        time_generated = TimeGen.query.filter_by(id=time_gen_id).first()
+        if time_generated is not None:
+          return jsonify({'time': time_generated.weeks}), 200
+        else:
+          raise Exception("This Project doesn't have a time configuration created")
+    except SQLAlchemyError as e:
+      return f'Error getting data: {e}', 500
+    except Exception as exp:
+      msg = f"Error: mesg ->{exp}"
+      app.logger.error(msg)
+      return msg, 404
+
 @app.route('/api/times', methods=['POST'])
 @token_required
 def get_times():
