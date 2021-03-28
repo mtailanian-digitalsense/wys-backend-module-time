@@ -7,7 +7,7 @@ import requests
 import json
 import jwt
 from sqlalchemy.exc import SQLAlchemyError
-from flask import Flask, jsonify, abort, request
+from flask import Flask, jsonify, abort, request, make_response
 from flask_sqlalchemy import SQLAlchemy
 from flask_swagger import swagger
 from flask_swagger_ui import get_swaggerui_blueprint
@@ -98,9 +98,7 @@ class TimeGen(db.Model):
         """
         obj_dict = {
             'id': self.id,
-            'adm_agility': self.adm_agility,
             'client_agility': self.client_agility,
-            'mun_agility': self.mun_agility,
             'construction_mod': self.construction_mod,
             'constructions_times': self.constructions_times,
             'procurement_process': self.procurement_process,
@@ -511,6 +509,88 @@ def calc_marcha_blanca(m2: int):
     return generate_dict(dict_values, CategoryConstants.OCUPACION)
 
 
+def failure(status, message):
+    response = make_response(jsonify(message=message), status)
+    response.headers["Content-Type"] = "application/json"
+    abort(response)
+
+
+def get_timegen_with_agility(project_id, headers):
+
+    project = None
+    location = None
+    building = None
+    zone = None
+    timegen = None
+
+    try:
+
+        #import pudb; pudb.set_trace()
+
+        # Obtain project data
+        #####################
+
+        api_url = f"{PROJECTS_URL}{PROJECTS_MODULE_API}{project_id}"
+        rv = requests.get(api_url, headers=headers)
+        project = json.loads(rv.text)
+
+
+        # Obtain time_gen
+        #################
+
+        timegen = TimeGen.query \
+                         .filter(TimeGen.id == project["time_gen_id"]) \
+                         .first()
+
+        if timegen is None:
+            return None
+
+        resp = timegen.to_dict()
+
+
+        # Obtain agilities
+        ##################
+        # project > location > building > zone
+
+        api_url = f"{BUILDINGS_URL}{BUILDINGS_MODULE_API}locations/{project['location_gen_id']}"
+        rv = requests.get(api_url, headers=headers)
+        if rv.status_code == 404:
+            raise requests.HTTPError
+
+        location = json.loads(rv.text)
+
+        # /api/buildings/<building_id>
+        api_url = f"{BUILDINGS_URL}{BUILDINGS_MODULE_API}{location['building_id']}"
+        rv = requests.get(api_url, headers=headers)
+        building = json.loads(rv.text)
+
+        # /api/buildings/zones/<zone_id>
+        api_url = f"{BUILDINGS_URL}{BUILDINGS_MODULE_API}zones/{building['zone_id']}"
+        rv = requests.get(api_url, headers=headers)
+        zone = json.loads(rv.text)
+
+        resp["adm_agility"] = building["adm_agility"]
+        resp["mun_agility"] = zone["mun_agility"]
+        resp["location_exist"] = True
+
+        return resp
+
+    except requests.HTTPError:
+        resp["adm_agility"] = "normal"
+        resp["mun_agility"] = "normal"
+        resp["location_exist"] = False
+
+        return resp
+
+    except requests.RequestException as e:
+        app.logger.warning(f"Internal error: {e}")
+        failure(HTTPStatus.INTERNAL_SERVER_ERROR, "Internal error (ConnectionError)")
+
+    except Exception as e:
+        app.logger.warning("Internal unexpected error: {e}")
+        abort(HTTPStatus.INTERNAL_SERVER_ERROR, "Internal error")
+
+
 def token_required(f):
     @wraps(f)
     def decorator(*args, **kwargs):
@@ -524,18 +604,19 @@ def token_required(f):
 
         if not token:
             app.logger.debug("token_required")
-            return jsonify({'message': 'a valid token is missing'})
+            return jsonify({'message': 'a valid token is missing'}), 400
 
-        app.logger.debug("Token: " + token)
+        app.logger.debug(f"Token: {token[0:10]} ... {token[-10:]}")
         try:
             data = jwt.decode(token, app.config['SECRET_KEY'],
                               algorithms=['RS256'], audience="1")
             user_id: int = data['user_id']
             request.environ['user_id'] = user_id
+
         except Exception as err:
-            return jsonify({'message': 'token is invalid', 'error': err})
+            return jsonify({'message': 'token is invalid', 'error': err}), 400
         except KeyError as kerr:
-            return jsonify({'message': 'Can\'t find user_id in token', 'error': kerr})
+            return jsonify({'message': 'Can\'t find user_id in token', 'error': kerr}), 400
 
         return f(*args, **kwargs)
 
@@ -988,28 +1069,17 @@ def get_save_times(project_id):
             500:
               description: Internal Server error or Database error
     """
- 
-    try:
-        token = request.headers.get('Authorization', None)
-        headers = {'Authorization': token}
-        resp = requests.get(
-            f'{PROJECTS_URL}{PROJECTS_MODULE_API}'
-            f'{project_id}', headers=headers)
-        project = json.loads(resp.content.decode('utf-8'))
-    except Exception as exp:
-        logging.error(f"Error getting Project {exp}")#cambiar mensaje de exp
-        return f"Error getting project {exp}", 500
 
-    try:
-        
-        timegen = TimeGen.query.filter(TimeGen.id == project["time_gen_id"]).first()
-        if timegen is not None:
-            return timegen.serialize()
-        else:
-            return {},404
-    except Exception as exp:
-        logging.error(f"Database Exception: {exp}")
-        return f"Database Exception: {exp}", 500
+    #import pudb; pudb.set_trace()
+
+    headers = {'Authorization': request.headers['Authorization']}
+
+    timegen = get_timegen_with_agility(project_id, headers)
+
+    if timegen:
+        return jsonify(timegen)
+
+    return jsonify({}), 404
 
 
 if __name__ == '__main__':
