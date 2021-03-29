@@ -571,14 +571,12 @@ def get_timegen_with_agility(project_id, headers):
 
         resp["adm_agility"] = building["adm_agility"]
         resp["mun_agility"] = zone["mun_agility"]
-        resp["location_exist"] = True
 
         return resp
 
     except requests.HTTPError:
         resp["adm_agility"] = "normal"
         resp["mun_agility"] = "normal"
-        resp["location_exist"] = False
 
         return resp
 
