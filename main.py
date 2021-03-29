@@ -661,7 +661,7 @@ def get_time_by_time_gen_id(time_gen_id):
         token = request.headers.get('Authorization', None)
         
         time_generated = TimeGen.query.filter_by(id=time_gen_id).first()
-        if time_generated is not None:
+        if time_generated:
           return jsonify({'time': time_generated.weeks}), 200
         else:
           raise Exception("This Project doesn't have a time configuration created")
@@ -921,14 +921,13 @@ def save_times():
         - application/json
         required:
             - project_id
-            - adm_agility
             - client_agility
-            - mun_agility
             - construction_mod
             - constructions_times
             - procurement_process
             - demolitions
             - m2
+            - weeks
         parameters:
         - in: body
           name: body
@@ -936,17 +935,9 @@ def save_times():
             project_id:
                 type: number
                 format: integer
-            adm_agility:
-                type: string
-                description:  Building Administration Agility
-                enum: [low, normal, high]
             client_agility:
                 type: string
                 description:  Client Agility
-                enum: [low, normal, high]
-            mun_agility:
-                type: string
-                description:  Municipality Agility
                 enum: [low, normal, high]
             construction_mod:
                 type: string
@@ -980,60 +971,67 @@ def save_times():
             500:
                 description: Internal server error.
     """
-    req_params = {'adm_agility', 'client_agility', 'mun_agility', 'construction_mod',
+    req_params = {'client_agility', 'construction_mod',
                   'constructions_times', 'procurement_process', 'demolitions', 'm2', 'project_id', 'weeks'}
 
     for param in req_params:
         if param not in request.json.keys():
             return f"{param} isn't in body", 400
-    token = request.headers.get('Authorization', None)
 
+    token = request.headers['Authorization']
+    headers = {'Authorization': token}
 
     try:
-        token = request.headers.get('Authorization', None)
-        headers = {'Authorization': token}
-        resp = requests.get(
-            f'{PROJECTS_URL}{PROJECTS_MODULE_API}'
-            f'/{request.json["project_id"]}', headers=headers)
-        project = json.loads(resp.content.decode('utf-8'))
-    except Exception as exp:
-        logging.error(f"Error getting Project {exp}")#cambiar mensaje de exp
-        return f"Error getting project {exp}", 500
+        api_url = f'{PROJECTS_URL}{PROJECTS_MODULE_API}{request.json["project_id"]}'
+        resp = requests.get(api_url, headers=headers)
 
-    gen: TimeGen = TimeGen.query \
-        .filter(TimeGen.id == project["time_gen_id"]) \
-        .first()
-    
-    time_gen_id: int
-    try: 
+        if resp.status_code == 404:
+            return (jsonify({"messsage": f"project {request.json['project_id']} not found"}), 
+                    HTTPStatus.NOT_FOUND)
+
+        project = json.loads(resp.content.decode('utf-8'))
+
+        gen: TimeGen = TimeGen.query \
+            .filter(TimeGen.id == project["time_gen_id"]) \
+            .first()
+
+        time_gen_id: int
         if gen is None:
             gen = TimeGen()
-        
-        gen.weeks=request.json['weeks'],
-        gen.adm_agility=request.json['adm_agility'],
+
         gen.client_agility=request.json['client_agility'],
-        gen.mun_agility=request.json['mun_agility'],
         gen.construction_mod=request.json['construction_mod'],
         gen.constructions_times=request.json['constructions_times'],
         gen.procurement_process=request.json['procurement_process'],
         gen.demolitions=request.json['demolitions'],
-        gen.m2=request.json['m2']
+        gen.m2=request.json['m2'],
+        gen.weeks=request.json['weeks']
 
         db.session.add(gen)
         db.session.commit()
 
         time_gen_id = gen.id
 
-    except Exception as exp:
-        logging.error(f"Error in database {exp}")
+    except SQLAlchemyError as e:
+        logging.error(f"Error in database {e}")
         db.session.rollback()
-        return jsonify({'message': f"Error in database {exp}"}), 500
-  
+        failure(HTTPStatus.INTERNAL_SERVER_ERROR, f"Error in database {e}")
+    
+    except requests.RequestException as e:
+        logging.error(f"Internal request error {e}")
+        failure(HTTPStatus.INTERNAL_SERVER_ERROR, f"Internal Conectivity Error")
+    
+    except Exception as e:
+        logging.error(f"Internal Unexpected Error: {e}")
+        failure(HTTPStatus.INTERNAL_SERVER_ERROR, f"Internal Error")
+
 
     project = update_project_by_id(request.json["project_id"], {'time_gen_id': time_gen_id}, token)
+
     if project is not None:
         project['time_generated_data'] = gen.to_dict()
         return jsonify(project), 201
+
     return "Cannot update the Project because doesn't exist", 404
 
 
