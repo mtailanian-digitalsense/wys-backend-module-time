@@ -907,6 +907,7 @@ def get_times_detailed():
 
 
 @app.route('/api/times/save', methods=['POST'])
+@token_required
 def save_times():
     """
         Save times
