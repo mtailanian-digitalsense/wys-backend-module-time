@@ -1,11 +1,6 @@
-import os
-import logging
-import pprint
+import os, logging, requests, json, jwt
 from random import randrange
 from constant import SubCategoryConstants, CategoryConstants
-import requests
-import json
-import jwt
 from sqlalchemy.exc import SQLAlchemyError
 from flask import Flask, jsonify, abort, request
 from flask_sqlalchemy import SQLAlchemy
@@ -19,23 +14,41 @@ from http import HTTPStatus
 
 # Loading Config Parameters
 DB_USER = os.getenv('DB_USER', 'wys')
+"""Config Parameters"""
 DB_PASS = os.getenv('DB_PASSWORD', 'rac3e/07')
+"""Config Parameters"""
 DB_IP = os.getenv('DB_IP_ADDRESS', '10.2.19.195')
+"""Config Parameters"""
 DB_PORT = os.getenv('DB_PORT', '3307')
+"""Config Parameters"""
 DB_SCHEMA = os.getenv('DB_SCHEMA', 'wys')
+"""Config Parameters"""
 APP_HOST = os.getenv('APP_HOST', '127.0.0.1')
+"""Config Parameters"""
 APP_PORT = os.getenv('APP_PORT', 5007)
+"""Config Parameters"""
+
 PROJECTS_MODULE_HOST = os.getenv('PROJECTS_MODULE_HOST', '127.0.0.1')
+""" Connect with projects module"""
 PROJECTS_MODULE_PORT = os.getenv('PROJECTS_MODULE_PORT', 5000)
+""" Connect with projects module"""
 PROJECTS_MODULE_API = os.getenv('PROJECTS_MODULE_API', '/api/projects/')
+""" Connect with projects module"""
 PROJECTS_URL = f"http://{PROJECTS_MODULE_HOST}:{PROJECTS_MODULE_PORT}"
+""" Connect with projects module"""
+
+# Flask Configurations
 app = Flask(__name__)
+""" Flask configuration"""
 CORS(app)
 app.config['SQLALCHEMY_DATABASE_URI'] = f"mysql://{DB_USER}:{DB_PASS}@{DB_IP}:{DB_PORT}/{DB_SCHEMA}"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+# Swagger Configurations
 SWAGGER_URL = '/api/times/docs/'
+"""Swagger configuration"""
 API_URL = '/api/times/spec'
+"""Swagger configuration"""
 swaggerui_blueprint = get_swaggerui_blueprint(
     SWAGGER_URL,
     API_URL,
@@ -43,9 +56,10 @@ swaggerui_blueprint = get_swaggerui_blueprint(
         'app_name': "WYS API - Times Service"
     }
 )
-
+"""Swagger blueprint"""
 app.register_blueprint(swaggerui_blueprint, url_prefix=SWAGGER_URL)
 
+# Reading public key
 try:
     f = open('oauth-public.key', 'r')
     key: str = f.read()
@@ -57,10 +71,15 @@ except Exception as terr:
 
 app.logger.setLevel(logging.DEBUG)
 db = SQLAlchemy(app)
+"""var with SQLAlchemy object"""
 Base = declarative_base()
 
 class TimeGen(db.Model):
     """
+    TimeGen 
+    ---
+    it provides SQl methods to connect with time_gen table on DB
+    
     Attributes
     ---
     id: Input identifictaion number
@@ -71,7 +90,8 @@ class TimeGen(db.Model):
     constructions_times: daytime, nightime, free
     procurement_process:  direct, bidding
     demolitions: yes, no
-    "m2": 569.0
+    m2: float number
+
     """
     id = db.Column(db.Integer, primary_key=True)
     adm_agility = db.Column(db.String(45))
@@ -86,7 +106,7 @@ class TimeGen(db.Model):
 
     def to_dict(self):
         """
-        Convert object to dictionary
+        To get a dictionary with all records, or, adding extra details from others tables related
         """
         obj_dict = {
             'id': self.id,
@@ -104,19 +124,24 @@ class TimeGen(db.Model):
 
     def serialize(self):
         """
-            Return object serialized to json
+        Return object serialized to json
         """
         return jsonify(self.to_dict())
 
 
 class TimeCategory(db.Model):
     """
+    Class TimeCategory 
+    ---
+    it provides SQl methods to connect with time_category table on DB
+    
     Attributes
     ---
-    id: Category id
-    code: Category Internal Name
-    name: Category External Name
+    id: TimeCategory id
+    code: TimeCategory Internal Name
+    name: TimeCategory External Name
     position: Position where this category should be in a Chart Gantt
+
     """
     id = db.Column(db.Integer, primary_key=True)
     code = db.Column(db.String(100))
@@ -127,10 +152,10 @@ class TimeCategory(db.Model):
         backref="time_category",
         cascade="all, delete, delete-orphan"
     )
-
+    """It contains all categories related to `TimeSubcategory()` in a dictionary"""
     def to_dict(self):
         """
-        Convert object to dictionary
+        To get a dictionary with all records, or, adding extra details from others tables related
         """
         obj_dict = {
             "id": self.id,
@@ -143,21 +168,26 @@ class TimeCategory(db.Model):
 
     def serialize(self):
         """
-            Return object serialized to json
+        Return object serialized to json
         """
         return jsonify(self.to_dict())
 
 
 class TimeSubcategory(db.Model):
     """
-        Attributes
-        ---
-        id: SubCategory id
-        code: SubCategory Internal Name
-        name: SubCategory External Name
-        position: Position where this subcategory should be in a Chart Gantt
-        is_milestone: True if this Subcategory is a milestone
-        category_id: Category id that own this subcategory
+    TimeSubcategory 
+    ---
+    it provides SQl methods to connect with time_subcategory table on DB
+    
+    Attributes
+    ---
+    id: TimeSubcategory id
+    code: TimeSubcategory Internal Name
+    name: TimeSubcategory External Name
+    position: Position where this TimeSubcategory should be in a Chart Gantt
+    is_milestone: True if this TimeSubcategory is a milestone
+    category_id: TimeCategory id that own this TimeSubcategory
+    
     """
     id = db.Column(db.Integer, primary_key=True)
     code = db.Column(db.String(100))
@@ -192,6 +222,12 @@ db.session.commit()
 
 
 def seed():
+    """
+    It initialize session vars using specific `TimeSubcategory()` names, and adding subcategory related.
+
+    It depends on Class `constant.CategoryConstants()` and `constant.SubCategoryConstants()`.
+    
+    """
     try:
         categories = TimeCategory.query.all()
         if len(categories) > 0:
@@ -314,6 +350,9 @@ seed()
 
 
 def generate_dict(dict_values: dict, category_code: str):
+    """
+    It generates a `TimeCategory()` dictionary for a category_code
+    """
     category: TimeCategory = TimeCategory.query \
         .filter(TimeCategory.code == category_code) \
         .first()
@@ -337,7 +376,8 @@ def generate_dict(dict_values: dict, category_code: str):
 def calc_arriendo():
     """
     Calc Arriendo Weeks
-    return: Category dict corresponding to "Arriendo"
+
+    return: Category dict corresponding to `Arriendo`
     """
 
     # Build dict with weeks by subcategories
@@ -350,6 +390,9 @@ def calc_arriendo():
 
 
 def calc_proyecto_ejecutivo(m2):
+    """
+    It assigns a value for `Proyecto_ejecutivo` according m2 value.
+    """
     if m2 <= 300:
         return 4
     elif 300 < m2 <= 600:
@@ -372,8 +415,9 @@ def calc_proyecto_ejecutivo(m2):
 
 def calc_diseno(client_aprov: int, m2: float):
     """
-    Calc diseno category
-    return: dict with durations.
+    It calculates weeks estimated for a project design.
+
+    return: Category dict corresponding to `DISENO`
     """
     # Build dict with subcategories durations in weeks
     dict_values = {
@@ -389,6 +433,9 @@ def calc_diseno(client_aprov: int, m2: float):
 
 
 def calc_weeks_per_m2_construccion(m2: int):
+    """
+    It assigns a weeks value according m2 in the construction
+    """
     if m2 <= 300:
         return 8
     elif 300 < m2 <= 600:
@@ -411,8 +458,9 @@ def calc_weeks_per_m2_construccion(m2: int):
 
 def calc_permisos(municipality_agility: int, building_agility: int):
     """
-    Calc permisos category
-    return: dict with durations
+    It adds constant values for `Presentacion_municipal` and `Pres_adm_edificio`.
+
+    returns: dict corresponding to `PERMISOS`
     """
     dict_values = {
         SubCategoryConstants.PRESENTACION_MUNICIPAL: municipality_agility,
@@ -423,8 +471,9 @@ def calc_permisos(municipality_agility: int, building_agility: int):
 
 def calc_licitacion(isDirect: bool):
     """
-    Calc licitacion category
-    return: dict with durations
+    It adds constant values for `Licitacion_obra`, `Negociacion` and `Adjudicacion_y_firma`.
+
+    returns: dict corresponding to `LICITACION`.
     """
     dict_values = {
         SubCategoryConstants.LICITACION_OBRA: 0 if isDirect else 4,
@@ -435,6 +484,11 @@ def calc_licitacion(isDirect: bool):
 
 
 def calc_construccion(m2: int, shift: str, demolition_required: bool, construction_mod: str):
+    """
+    It calculates weeks estimated for a project construction.
+
+    returns: dict corresponding to `CONSTRUCCION`.
+    """
     # Mapping Weeks
     shift_map = {
         'daytime': 1,
@@ -480,6 +534,11 @@ def calc_construccion(m2: int, shift: str, demolition_required: bool, constructi
 
 
 def calc_mudanza():
+    """
+    It adds constant values for `Mudanza` and `Logistica`
+
+    returns: dict corresponding to `MUDANZA`.
+    """
     dict_values = {
         SubCategoryConstants.MUDANZA: 0,
         SubCategoryConstants.LOGISTICA: 2
@@ -488,6 +547,11 @@ def calc_mudanza():
 
 
 def calc_marcha_blanca(m2: int):
+    """
+    It calculates weeks estimated for a project trial run.
+
+    returns: dict with duration corresponding to `OCUPACION`.
+    """
     weeks = 0
     if m2 <= 1000:
         weeks = 2
@@ -504,6 +568,7 @@ def calc_marcha_blanca(m2: int):
 
 
 def token_required(f):
+    """Function to get the token for the swagger"""
     @wraps(f)
     def decorator(*args, **kwargs):
 
@@ -537,6 +602,7 @@ def token_required(f):
 @app.route("/api/times/spec", methods=['GET'])
 @token_required
 def spec():
+    """To load the swagger app"""
     swag = swagger(app)
     swag['info']['version'] = "1.0"
     swag['info']['title'] = "WYS Layout API Service"
@@ -551,22 +617,28 @@ def spec():
 @token_required
 def get_time_by_time_gen_id(time_gen_id):
     """
-        Get time of a project in times module by time gen ID.
-        ---
-        parameters:
-          - in: path
-            name: time_gen_id
-            type: integer
-            description: Time gen ID
-        tags:
+    Get time of a project in times module by time gen ID.
+    ---
+    parameters:
+
+        - in: path
+          name: time_gen_id
+          type: integer
+          description: Time gen ID
+
+    tags:
+
         - "Times"
-        responses:
-          200:
+
+    responses:
+
+        200:
             description: time information.
-          404:
+        404:
             description: Record Not Found.
-          500:
+        500:
             description: "Database error"
+
     """
     try:
         token = request.headers.get('Authorization', None)
@@ -587,24 +659,33 @@ def get_time_by_time_gen_id(time_gen_id):
 @token_required
 def get_times():
     """
-        Get Weeks to Move
-        ---
-        consumes:
+    Get Weeks to Move
+    ---
+    consumes:
+
         - "application/json"
-        tags:
+
+    tags:
+
         - Times
-        produces:
+
+    produces:
+
         - application/json
-        required:
-            - adm_agility
-            - client_agility
-            - mun_agility
-            - construction_mod
-            - constructions_times
-            - procurement_process
-            - demolitions
-            - m2
-        parameters:
+    
+    required:
+
+        - adm_agility
+        - client_agility
+        - mun_agility
+        - construction_mod
+        - constructions_times
+        - procurement_process
+        - demolitions
+        - m2
+
+    parameters:
+
         - in: body
           name: body
           properties:
@@ -638,15 +719,18 @@ def get_times():
             m2:
                 type: number
                 format: float
-        responses:
-            200:
-                description: Return weeks
-            400:
-                description: Data or missing field in body.
-            404:
-                description: Data object not found.
-            500:
-                description: Internal server error.
+
+    responses:
+
+        200:
+            description: Return weeks
+        400:
+            description: Data or missing field in body.
+        404:
+            description: Data object not found.
+        500:
+            description: Internal server error.
+
     """
 
     req_params = {'adm_agility', 'client_agility', 'mun_agility', 'construction_mod',
@@ -738,24 +822,33 @@ def get_times():
 @token_required
 def get_times_detailed():
     """
-        Get Weeks to Move
-        ---
-        consumes:
+    Get Weeks to Move
+    ---
+    consumes:
+
         - "application/json"
-        tags:
+
+    tags:
+
         - Times
-        produces:
+
+    produces:
+
         - application/json
-        required:
-            - adm_agility
-            - client_agility
-            - mun_agility
-            - construction_mod
-            - constructions_times
-            - procurement_process
-            - demolitions
-            - m2
-        parameters:
+
+    required:
+
+        - adm_agility
+        - client_agility
+        - mun_agility
+        - construction_mod
+        - constructions_times
+        - procurement_process
+        - demolitions
+        - m2
+
+    parameters:
+
         - in: body
           name: body
           properties:
@@ -789,15 +882,18 @@ def get_times_detailed():
             m2:
                 type: number
                 format: float
-        responses:
-            200:
-                description: Return weeks
-            400:
-                description: Data or missing field in body.
-            404:
-                description: Data object not found.
-            500:
-                description: Internal server error.
+
+    responses:
+
+        200:
+            description: Return weeks
+        400:
+            description: Data or missing field in body.
+        404:
+            description: Data object not found.
+        500:
+            description: Internal server error.
+
     """
     req_params = {'adm_agility', 'client_agility', 'mun_agility', 'construction_mod',
                   'constructions_times', 'procurement_process', 'demolitions', 'm2'}
@@ -819,28 +915,51 @@ def get_times_detailed():
     return jsonify(categories_dict)
 
 
+def update_project_by_id(project_id, data, token):
+  """ 
+  It updates a project, updating the `time_gen_id` value.
+  """
+  headers = {'Authorization': token}
+  api_url = PROJECTS_URL + PROJECTS_MODULE_API + str(project_id)
+  rv = requests.put(api_url, json=data, headers=headers)
+  if rv.status_code == 200:
+    return json.loads(rv.text)
+  elif rv.status_code == 500:
+    raise Exception("Cannot connect to the projects module")
+  return None
+
+
 @app.route('/api/times/save', methods=['POST'])
 def save_times():
     """
-        Save times
-        ---
-        consumes:
+    Save times
+    ---
+    consumes:
+
         - "application/json"
-        tags:
+
+    tags:
+
         - Times
-        produces:
+
+    produces:
+
         - application/json
-        required:
-            - project_id
-            - adm_agility
-            - client_agility
-            - mun_agility
-            - construction_mod
-            - constructions_times
-            - procurement_process
-            - demolitions
-            - m2
-        parameters:
+
+    required:
+
+        - project_id
+        - adm_agility
+        - client_agility
+        - mun_agility
+        - construction_mod
+        - constructions_times
+        - procurement_process
+        - demolitions
+        - m2
+
+    parameters:
+
         - in: body
           name: body
           properties:
@@ -881,15 +1000,18 @@ def save_times():
                 type: number
                 format: float
                 description: weeks to move
-        responses:
-            200:
-                description: Return weeks
-            400:
-                description: Data or missing field in body.
-            404:
-                description: Data object not found.
-            500:
-                description: Internal server error.
+
+    responses:
+    
+        200:
+            description: Return weeks
+        400:
+            description: Data or missing field in body.
+        404:
+            description: Data object not found.
+        500:
+            description: Internal server error.
+
     """
     req_params = {'adm_agility', 'client_agility', 'mun_agility', 'construction_mod',
                   'constructions_times', 'procurement_process', 'demolitions', 'm2', 'project_id', 'weeks'}
@@ -947,38 +1069,32 @@ def save_times():
         return jsonify(project), 201
     return "Cannot update the Project because doesn't exist", 404
 
-
-def update_project_by_id(project_id, data, token):
-  headers = {'Authorization': token}
-  api_url = PROJECTS_URL + PROJECTS_MODULE_API + str(project_id)
-  rv = requests.put(api_url, json=data, headers=headers)
-  if rv.status_code == 200:
-    return json.loads(rv.text)
-  elif rv.status_code == 500:
-    raise Exception("Cannot connect to the projects module")
-  return None
-
 @app.route('/api/times/saved/<project_id>', methods=['GET'])
 @token_required
 def get_save_times(project_id):
     """
-        Get saved time info.
-        ---
+    Get saved time info.
+    ---
+    parameters:
+    
+        - in: path
+          name: project_id
+          type: integer
+          description: Saved Project ID
+    
+    tags:
 
-          parameters:
-            - in: path
-              name: project_id
-              type: integer
-              description: Saved Project ID
-          tags:
-            - Times
-          responses:
-            200:
-              description: Saved Time Object.
-            404:
-              description: Not Found.
-            500:
-              description: Internal Server error or Database error
+        - Times
+    
+    responses:
+
+        200:
+            description: Saved Time Object.
+        404:
+            description: Not Found.
+        500:
+            description: Internal Server error or Database error
+        
     """
  
     try:
