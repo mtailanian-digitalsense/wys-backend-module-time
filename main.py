@@ -2,7 +2,7 @@ import os, logging, requests, json, jwt
 from random import randrange
 from constant import SubCategoryConstants, CategoryConstants
 from sqlalchemy.exc import SQLAlchemyError
-from flask import Flask, jsonify, abort, request
+from flask import Flask, jsonify, abort, request, make_response
 from flask_sqlalchemy import SQLAlchemy
 from flask_swagger import swagger
 from flask_swagger_ui import get_swaggerui_blueprint
@@ -26,7 +26,6 @@ DB_SCHEMA = os.getenv('DB_SCHEMA', 'wys')
 APP_HOST = os.getenv('APP_HOST', '127.0.0.1')
 """Config Parameters"""
 APP_PORT = os.getenv('APP_PORT', 5007)
-"""Config Parameters"""
 
 PROJECTS_MODULE_HOST = os.getenv('PROJECTS_MODULE_HOST', '127.0.0.1')
 """ Connect with projects module"""
@@ -35,9 +34,12 @@ PROJECTS_MODULE_PORT = os.getenv('PROJECTS_MODULE_PORT', 5000)
 PROJECTS_MODULE_API = os.getenv('PROJECTS_MODULE_API', '/api/projects/')
 """ Connect with projects module"""
 PROJECTS_URL = f"http://{PROJECTS_MODULE_HOST}:{PROJECTS_MODULE_PORT}"
-""" Connect with projects module"""
 
-# Flask Configurations
+BUILDINGS_MODULE_HOST = os.getenv('BUILDINGS_MODULE_HOST', '127.0.0.1')
+BUILDINGS_MODULE_PORT = os.getenv('BUILDINGS_MODULE_PORT', 5004)
+BUILDINGS_MODULE_API = os.getenv('BUILDINGS_MODULE_API', '/api/buildings/')
+BUILDINGS_URL = f"http://{BUILDINGS_MODULE_HOST}:{BUILDINGS_MODULE_PORT}"
+
 app = Flask(__name__)
 """ Flask configuration"""
 CORS(app)
@@ -94,9 +96,9 @@ class TimeGen(db.Model):
 
     """
     id = db.Column(db.Integer, primary_key=True)
-    adm_agility = db.Column(db.String(45))
+    adm_agility = db.Column(db.String(45), nullable=True) # No hay que ocuparlo
     client_agility = db.Column(db.String(45))
-    mun_agility = db.Column(db.String(45))
+    mun_agility = db.Column(db.String(45), nullable=True) # No hay que ocuparlo
     construction_mod = db.Column(db.String(45))
     constructions_times = db.Column(db.String(45))
     procurement_process = db.Column(db.String(45))
@@ -110,9 +112,7 @@ class TimeGen(db.Model):
         """
         obj_dict = {
             'id': self.id,
-            'adm_agility': self.adm_agility,
             'client_agility': self.client_agility,
-            'mun_agility': self.mun_agility,
             'construction_mod': self.construction_mod,
             'constructions_times': self.constructions_times,
             'procurement_process': self.procurement_process,
@@ -567,6 +567,86 @@ def calc_marcha_blanca(m2: int):
     return generate_dict(dict_values, CategoryConstants.OCUPACION)
 
 
+def failure(status, message):
+    response = make_response(jsonify(message=message), status)
+    response.headers["Content-Type"] = "application/json"
+    abort(response)
+
+
+def get_timegen_with_agility(project_id, headers):
+
+    project = None
+    location = None
+    building = None
+    zone = None
+    timegen = None
+
+    try:
+
+        #import pudb; pudb.set_trace()
+
+        # Obtain project data
+        #####################
+
+        api_url = f"{PROJECTS_URL}{PROJECTS_MODULE_API}{project_id}"
+        rv = requests.get(api_url, headers=headers)
+        project = json.loads(rv.text)
+
+
+        # Obtain time_gen
+        #################
+
+        timegen = TimeGen.query \
+                         .filter(TimeGen.id == project["time_gen_id"]) \
+                         .first()
+
+        if timegen is None:
+            return None
+
+        resp = timegen.to_dict()
+
+
+        # Obtain agilities
+        ##################
+        # project > location > building > zone
+
+        api_url = f"{BUILDINGS_URL}{BUILDINGS_MODULE_API}locations/{project['location_gen_id']}"
+        rv = requests.get(api_url, headers=headers)
+        if rv.status_code == 404:
+            raise requests.HTTPError
+
+        location = json.loads(rv.text)
+
+        # /api/buildings/<building_id>
+        api_url = f"{BUILDINGS_URL}{BUILDINGS_MODULE_API}{location['building_id']}"
+        rv = requests.get(api_url, headers=headers)
+        building = json.loads(rv.text)
+
+        # /api/buildings/zones/<zone_id>
+        api_url = f"{BUILDINGS_URL}{BUILDINGS_MODULE_API}zones/{building['zone_id']}"
+        rv = requests.get(api_url, headers=headers)
+        zone = json.loads(rv.text)
+
+        resp["adm_agility"] = building["adm_agility"]
+        resp["mun_agility"] = zone["mun_agility"]
+
+        return resp
+
+    except requests.HTTPError:
+        resp["adm_agility"] = "normal"
+        resp["mun_agility"] = "normal"
+
+        return resp
+
+    except requests.RequestException as e:
+        app.logger.warning(f"Internal error: {e}")
+        failure(HTTPStatus.INTERNAL_SERVER_ERROR, "Internal error (ConnectionError)")
+
+    except Exception as e:
+        app.logger.warning("Internal unexpected error: {e}")
+        abort(HTTPStatus.INTERNAL_SERVER_ERROR, "Internal error")
+
+
 def token_required(f):
     """Function to get the token for the swagger"""
     @wraps(f)
@@ -581,18 +661,19 @@ def token_required(f):
 
         if not token:
             app.logger.debug("token_required")
-            return jsonify({'message': 'a valid token is missing'})
+            return jsonify({'message': 'a valid token is missing'}), 400
 
-        app.logger.debug("Token: " + token)
+        app.logger.debug(f"Token: {token[0:10]} ... {token[-10:]}")
         try:
             data = jwt.decode(token, app.config['SECRET_KEY'],
                               algorithms=['RS256'], audience="1")
             user_id: int = data['user_id']
             request.environ['user_id'] = user_id
+
         except Exception as err:
-            return jsonify({'message': 'token is invalid', 'error': err})
+            return jsonify({'message': 'token is invalid', 'error': err}), 400
         except KeyError as kerr:
-            return jsonify({'message': 'Can\'t find user_id in token', 'error': kerr})
+            return jsonify({'message': 'Can\'t find user_id in token', 'error': kerr}), 400
 
         return f(*args, **kwargs)
 
@@ -644,7 +725,7 @@ def get_time_by_time_gen_id(time_gen_id):
         token = request.headers.get('Authorization', None)
         
         time_generated = TimeGen.query.filter_by(id=time_gen_id).first()
-        if time_generated is not None:
+        if time_generated:
           return jsonify({'time': time_generated.weeks}), 200
         else:
           raise Exception("This Project doesn't have a time configuration created")
@@ -930,6 +1011,7 @@ def update_project_by_id(project_id, data, token):
 
 
 @app.route('/api/times/save', methods=['POST'])
+@token_required
 def save_times():
     """
     Save times
@@ -947,36 +1029,25 @@ def save_times():
         - application/json
 
     required:
-
         - project_id
-        - adm_agility
         - client_agility
-        - mun_agility
         - construction_mod
         - constructions_times
         - procurement_process
         - demolitions
         - m2
-
+        - weeks
+        
     parameters:
-
         - in: body
           name: body
           properties:
             project_id:
                 type: number
                 format: integer
-            adm_agility:
-                type: string
-                description:  Building Administration Agility
-                enum: [low, normal, high]
             client_agility:
                 type: string
                 description:  Client Agility
-                enum: [low, normal, high]
-            mun_agility:
-                type: string
-                description:  Municipality Agility
                 enum: [low, normal, high]
             construction_mod:
                 type: string
@@ -1013,60 +1084,67 @@ def save_times():
             description: Internal server error.
 
     """
-    req_params = {'adm_agility', 'client_agility', 'mun_agility', 'construction_mod',
+    req_params = {'client_agility', 'construction_mod',
                   'constructions_times', 'procurement_process', 'demolitions', 'm2', 'project_id', 'weeks'}
 
     for param in req_params:
         if param not in request.json.keys():
             return f"{param} isn't in body", 400
-    token = request.headers.get('Authorization', None)
 
+    token = request.headers['Authorization']
+    headers = {'Authorization': token}
 
     try:
-        token = request.headers.get('Authorization', None)
-        headers = {'Authorization': token}
-        resp = requests.get(
-            f'{PROJECTS_URL}{PROJECTS_MODULE_API}'
-            f'/{request.json["project_id"]}', headers=headers)
-        project = json.loads(resp.content.decode('utf-8'))
-    except Exception as exp:
-        logging.error(f"Error getting Project {exp}")#cambiar mensaje de exp
-        return f"Error getting project {exp}", 500
+        api_url = f'{PROJECTS_URL}{PROJECTS_MODULE_API}{request.json["project_id"]}'
+        resp = requests.get(api_url, headers=headers)
 
-    gen: TimeGen = TimeGen.query \
-        .filter(TimeGen.id == project["time_gen_id"]) \
-        .first()
-    
-    time_gen_id: int
-    try: 
+        if resp.status_code == 404:
+            return (jsonify({"messsage": f"project {request.json['project_id']} not found"}), 
+                    HTTPStatus.NOT_FOUND)
+
+        project = json.loads(resp.content.decode('utf-8'))
+
+        gen: TimeGen = TimeGen.query \
+            .filter(TimeGen.id == project["time_gen_id"]) \
+            .first()
+
+        time_gen_id: int
         if gen is None:
             gen = TimeGen()
-        
-        gen.weeks=request.json['weeks'],
-        gen.adm_agility=request.json['adm_agility'],
+
         gen.client_agility=request.json['client_agility'],
-        gen.mun_agility=request.json['mun_agility'],
         gen.construction_mod=request.json['construction_mod'],
         gen.constructions_times=request.json['constructions_times'],
         gen.procurement_process=request.json['procurement_process'],
         gen.demolitions=request.json['demolitions'],
-        gen.m2=request.json['m2']
+        gen.m2=request.json['m2'],
+        gen.weeks=request.json['weeks']
 
         db.session.add(gen)
         db.session.commit()
 
         time_gen_id = gen.id
 
-    except Exception as exp:
-        logging.error(f"Error in database {exp}")
+    except SQLAlchemyError as e:
+        logging.error(f"Error in database {e}")
         db.session.rollback()
-        return jsonify({'message': f"Error in database {exp}"}), 500
-  
+        failure(HTTPStatus.INTERNAL_SERVER_ERROR, f"Error in database {e}")
+    
+    except requests.RequestException as e:
+        logging.error(f"Internal request error {e}")
+        failure(HTTPStatus.INTERNAL_SERVER_ERROR, f"Internal Conectivity Error")
+    
+    except Exception as e:
+        logging.error(f"Internal Unexpected Error: {e}")
+        failure(HTTPStatus.INTERNAL_SERVER_ERROR, f"Internal Error")
+
 
     project = update_project_by_id(request.json["project_id"], {'time_gen_id': time_gen_id}, token)
+
     if project is not None:
         project['time_generated_data'] = gen.to_dict()
         return jsonify(project), 201
+
     return "Cannot update the Project because doesn't exist", 404
 
 @app.route('/api/times/saved/<project_id>', methods=['GET'])
@@ -1096,28 +1174,17 @@ def get_save_times(project_id):
             description: Internal Server error or Database error
         
     """
- 
-    try:
-        token = request.headers.get('Authorization', None)
-        headers = {'Authorization': token}
-        resp = requests.get(
-            f'{PROJECTS_URL}{PROJECTS_MODULE_API}'
-            f'{project_id}', headers=headers)
-        project = json.loads(resp.content.decode('utf-8'))
-    except Exception as exp:
-        logging.error(f"Error getting Project {exp}")#cambiar mensaje de exp
-        return f"Error getting project {exp}", 500
 
-    try:
-        
-        timegen = TimeGen.query.filter(TimeGen.id == project["time_gen_id"]).first()
-        if timegen is not None:
-            return timegen.serialize()
-        else:
-            return {},404
-    except Exception as exp:
-        logging.error(f"Database Exception: {exp}")
-        return f"Database Exception: {exp}", 500
+    #import pudb; pudb.set_trace()
+
+    headers = {'Authorization': request.headers['Authorization']}
+
+    timegen = get_timegen_with_agility(project_id, headers)
+
+    if timegen:
+        return jsonify(timegen)
+
+    return jsonify({}), 404
 
 
 if __name__ == '__main__':

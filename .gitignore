@@ -150,3 +150,6 @@ pyvenv.cfg
 .idea/
 
 Include/
+
+**/Pipfile
+**/Pipfile.lock
