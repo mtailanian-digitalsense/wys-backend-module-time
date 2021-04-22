@@ -573,7 +573,7 @@ def failure(status, message):
     abort(response)
 
 
-def get_timegen_with_agility(project_id, headers):
+def get_timegen_with_agility(project_id, token):
 
     project = None
     location = None
@@ -582,7 +582,7 @@ def get_timegen_with_agility(project_id, headers):
     timegen = None
 
     try:
-
+        headers = {"Authorization": token}
         #import pudb; pudb.set_trace()
 
         # Obtain project data
@@ -1177,9 +1177,9 @@ def get_save_times(project_id):
 
     #import pudb; pudb.set_trace()
 
-    headers = {'Authorization': request.headers['Authorization']}
+    token = request.headers.get("Authorization", None)
 
-    timegen = get_timegen_with_agility(project_id, headers)
+    timegen = get_timegen_with_agility(project_id, token)
 
     if timegen:
         return jsonify(timegen)
