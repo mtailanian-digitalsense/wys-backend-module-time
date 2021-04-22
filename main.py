@@ -1214,29 +1214,30 @@ def get_save_times(project_id):
     except Exception as exp:
         logging.error(f"Error getting Location {exp}")#cambiar mensaje de exp
         error=True
-    
-    # /api/buildings/<building_id>
-    api_url = f"{BUILDINGS_URL}{BUILDINGS_MODULE_API}{location['building_id']}"
-    try:
-        
-        rv = requests.get(api_url, headers=headers)
-        if rv.status_code == 404:
-            error=True
-        building = json.loads(rv.text)
-    except Exception as exp:
-        logging.error(f"Error getting building {exp}")#cambiar mensaje de exp
-        error=True
 
-    # /api/buildings/zones/<zone_id>
-    api_url = f"{BUILDINGS_URL}{BUILDINGS_MODULE_API}zones/{building['zone_id']}"
-    try:
-        rv = requests.get(api_url, headers=headers)
-        if rv.status_code == 404:
+    if error==False:
+        # /api/buildings/<building_id>
+        api_url = f"{BUILDINGS_URL}{BUILDINGS_MODULE_API}{location['building_id']}"
+        try:
+            
+            rv = requests.get(api_url, headers=headers)
+            if rv.status_code == 404:
+                error=True
+            building = json.loads(rv.text)
+        except Exception as exp:
+            logging.error(f"Error getting building {exp}")#cambiar mensaje de exp
             error=True
-        zone = json.loads(rv.text)
-    except Exception as exp:
-        logging.error(f"Error getting zone {exp}")#cambiar mensaje de exp
-        error=True
+
+        # /api/buildings/zones/<zone_id>
+        api_url = f"{BUILDINGS_URL}{BUILDINGS_MODULE_API}zones/{building['zone_id']}"
+        try:
+            rv = requests.get(api_url, headers=headers)
+            if rv.status_code == 404:
+                error=True
+            zone = json.loads(rv.text)
+        except Exception as exp:
+            logging.error(f"Error getting zone {exp}")#cambiar mensaje de exp
+            error=True
     
     if(error):
         resp["adm_agility"] = "normal"
