@@ -643,7 +643,7 @@ def get_timegen_with_agility(project_id, token):
         failure(HTTPStatus.INTERNAL_SERVER_ERROR, "Internal error (ConnectionError)")
 
     except Exception as e:
-        app.logger.warning("Internal unexpected error: {e}")
+        app.logger.warning(f"Internal unexpected error: {e}")
         abort(HTTPStatus.INTERNAL_SERVER_ERROR, "Internal error")
 
 
