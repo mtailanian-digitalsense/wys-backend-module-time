@@ -1175,16 +1175,77 @@ def get_save_times(project_id):
         
     """
 
-    #import pudb; pudb.set_trace()
+    resp = dict()
+    try:
+        token = request.headers.get('Authorization', None)
+        headers = {'Authorization': token}
+        resp = requests.get(
+            f'{PROJECTS_URL}{PROJECTS_MODULE_API}'
+            f'{project_id}', headers=headers)
+        project = json.loads(resp.content.decode('utf-8'))
+        if resp.status_code == 404:
+            return f"Error getting project {exp}", 404
+    except Exception as exp:
+        logging.error(f"Error getting Project {exp}")#cambiar mensaje de exp
+        return f"Error getting project {exp}", 500
+    
+    try:
+        
+        timegen = TimeGen.query.filter(TimeGen.id == project["time_gen_id"]).first()
+        if timegen is None:
+            return {},404
+    except Exception as exp:
+        logging.error(f"Database Exception: {exp}")
+        return f"Database Exception: {exp}", 500
 
-    token = request.headers.get("Authorization", None)
+    resp = timegen.to_dict()
 
-    timegen = get_timegen_with_agility(project_id, token)
+    # Obtain agilities
+    ##################
+    # project > location > building > zone
+    error=False
+    api_url = f"{BUILDINGS_URL}{BUILDINGS_MODULE_API}locations/{project['location_gen_id']}"
+    try:
+        rv = requests.get(api_url, headers=headers)
+        if rv.status_code == 404:
+            error=True
 
-    if timegen:
-        return jsonify(timegen)
+        location = json.loads(rv.text)
+    except Exception as exp:
+        logging.error(f"Error getting Location {exp}")#cambiar mensaje de exp
+        error=True
+    
+    # /api/buildings/<building_id>
+    api_url = f"{BUILDINGS_URL}{BUILDINGS_MODULE_API}{location['building_id']}"
+    try:
+        
+        rv = requests.get(api_url, headers=headers)
+        if rv.status_code == 404:
+            error=True
+        building = json.loads(rv.text)
+    except Exception as exp:
+        logging.error(f"Error getting building {exp}")#cambiar mensaje de exp
+        error=True
 
-    return jsonify({}), 404
+    # /api/buildings/zones/<zone_id>
+    api_url = f"{BUILDINGS_URL}{BUILDINGS_MODULE_API}zones/{building['zone_id']}"
+    try:
+        rv = requests.get(api_url, headers=headers)
+        if rv.status_code == 404:
+            error=True
+        zone = json.loads(rv.text)
+    except Exception as exp:
+        logging.error(f"Error getting zone {exp}")#cambiar mensaje de exp
+        error=True
+    
+    if(error):
+        resp["adm_agility"] = "normal"
+        resp["mun_agility"] = "normal"
+    else:
+        resp["adm_agility"] = building["adm_agility"]
+        resp["mun_agility"] = zone["mun_agility"]
+
+    return jsonify(resp),200
 
 
 if __name__ == '__main__':
