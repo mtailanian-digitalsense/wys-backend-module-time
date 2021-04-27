@@ -573,80 +573,6 @@ def failure(status, message):
     abort(response)
 
 
-def get_timegen_with_agility(project_id, token):
-
-    project = None
-    location = None
-    building = None
-    zone = None
-    timegen = None
-
-    try:
-        headers = {"Authorization": token}
-        #import pudb; pudb.set_trace()
-
-        # Obtain project data
-        #####################
-
-        api_url = f"{PROJECTS_URL}{PROJECTS_MODULE_API}{project_id}"
-        rv = requests.get(api_url, headers=headers)
-        project = json.loads(rv.text)
-
-
-        # Obtain time_gen
-        #################
-
-        timegen = TimeGen.query \
-                         .filter(TimeGen.id == project["time_gen_id"]) \
-                         .first()
-
-        if timegen is None:
-            return None
-
-        resp = timegen.to_dict()
-
-
-        # Obtain agilities
-        ##################
-        # project > location > building > zone
-
-        api_url = f"{BUILDINGS_URL}{BUILDINGS_MODULE_API}locations/{project['location_gen_id']}"
-        rv = requests.get(api_url, headers=headers)
-        if rv.status_code == 404:
-            raise requests.HTTPError
-
-        location = json.loads(rv.text)
-
-        # /api/buildings/<building_id>
-        api_url = f"{BUILDINGS_URL}{BUILDINGS_MODULE_API}{location['building_id']}"
-        rv = requests.get(api_url, headers=headers)
-        building = json.loads(rv.text)
-
-        # /api/buildings/zones/<zone_id>
-        api_url = f"{BUILDINGS_URL}{BUILDINGS_MODULE_API}zones/{building['zone_id']}"
-        rv = requests.get(api_url, headers=headers)
-        zone = json.loads(rv.text)
-
-        resp["adm_agility"] = building["adm_agility"]
-        resp["mun_agility"] = zone["mun_agility"]
-
-        return resp
-
-    except requests.HTTPError:
-        resp["adm_agility"] = "normal"
-        resp["mun_agility"] = "normal"
-
-        return resp
-
-    except requests.RequestException as e:
-        app.logger.warning(f"Internal error: {e}")
-        failure(HTTPStatus.INTERNAL_SERVER_ERROR, "Internal error (ConnectionError)")
-
-    except Exception as e:
-        app.logger.warning(f"Internal unexpected error: {e}")
-        abort(HTTPStatus.INTERNAL_SERVER_ERROR, "Internal error")
-
-
 def token_required(f):
     """Function to get the token for the swagger"""
     @wraps(f)
@@ -985,13 +911,87 @@ def get_times_detailed():
 
     categories = TimeCategory.query.all()
     categories_dict = [category.to_dict() for category in categories]
+    m2: float = request.json['m2']
 
     for category in categories_dict:
         for sub_cat in category['subcategories']:
             if sub_cat['is_milestone']:
                 sub_cat["weeks"] = 0
                 continue
-            sub_cat["weeks"] = randrange(3, 8, 1)
+            
+            cats = {}
+            if category['code'] == 'ARRIENDO':
+                # Arriendo
+                cats = calc_arriendo()["subcategories"] 
+            elif category['code'] == 'DISEÑO':
+                # Diseno
+                map_client_agility = {
+                    'high': 0,
+                    'normal': 1,
+                    'low': 2
+                }
+                client_agility = 0
+                if request.json['client_agility'] in map_client_agility:
+                    client_agility = map_client_agility[request.json['client_agility']]
+                else:
+                    logging.warning(f'{request.json["client_agility"]} is not a valid key')
+
+                cats = calc_diseno(client_agility, request.json['m2'])['subcategories']
+            elif category['code'] == 'PERMISOS':
+                # Permisos
+                municipality_agility_map = {
+                    'low': 8,
+                    'normal': 6,
+                    'high': 4
+                }
+
+                building_agility_map = {
+                    'low': 6,
+                    'normal': 4,
+                    'high': 2
+                }
+                mun_agility = 0
+                if request.json['mun_agility'] in municipality_agility_map:
+                    mun_agility += municipality_agility_map[request.json['mun_agility']]
+                else:
+                    logging.warning(f'{request.json["mun_agility"]} is not a valid key')
+
+                building_agility = 0
+                if request.json['adm_agility'] in building_agility_map:
+                    building_agility += building_agility_map[request.json['adm_agility']]
+                else:
+                    logging.warning(f'{request.json["adm_agility"]} is not a valid key')
+
+                cats = calc_permisos(mun_agility, building_agility)["subcategories"]
+            elif category['code'] == 'LICITACIÓN':
+                # Licitacion
+                procurement_process = request.json['procurement_process']
+                is_direct = False
+                if procurement_process == "direct":
+                    is_direct = True
+
+                cats = calc_licitacion(is_direct)["subcategories"]
+            elif category['code'] == 'CONSTRUCCIÓN':
+                 # Construccion
+                demolition_needed: bool = True if request.json['demolitions'] == 'yes' else False
+                construction_times: str = request.json['constructions_times']
+                construction_mod: str = request.json['construction_mod']
+
+                cats = calc_construccion(m2, construction_times,
+                                        demolition_needed, construction_mod)['subcategories']
+            elif category['code'] == 'MUDANZA':
+                # mudanza
+                cats = calc_mudanza()['subcategories']
+            else:
+                # post ocupacion
+                cats = calc_marcha_blanca(m2)['subcategories']
+        
+            #sub_cat["weeks"] = randrange(3, 8, 1)
+            for sub_cat_calc in cats:
+                if(sub_cat['code'] == sub_cat_calc['code'] and sub_cat['category_id'] == sub_cat_calc['category_id']):
+                    sub_cat['weeks'] = sub_cat_calc['weeks']
+                    break
+
 
     return jsonify(categories_dict)
 
