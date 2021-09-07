@@ -17,7 +17,7 @@ DB_USER = os.getenv('DB_USER', 'wys')
 """Config Parameters"""
 DB_PASS = os.getenv('DB_PASSWORD', 'rac3e/07')
 """Config Parameters"""
-DB_IP = os.getenv('DB_IP_ADDRESS', '10.2.19.195')
+DB_IP = os.getenv('DB_IP_ADDRESS', '10.2.14.195')
 """Config Parameters"""
 DB_PORT = os.getenv('DB_PORT', '3307')
 """Config Parameters"""
@@ -1184,7 +1184,7 @@ def get_save_times(project_id):
             f'{project_id}', headers=headers)
         project = json.loads(resp.content.decode('utf-8'))
         if resp.status_code == 404:
-            return f"Error getting project {exp}", 404
+            return "Error getting project", 404
     except Exception as exp:
         logging.error(f"Error getting Project {exp}")#cambiar mensaje de exp
         return f"Error getting project {exp}", 500

@@ -6,6 +6,6 @@ mysqlclient
 pillow
 pyjwt
 gunicorn
-cryptography
 flask-cors
 requests
+cffi!=1.11.3,>=1.8
