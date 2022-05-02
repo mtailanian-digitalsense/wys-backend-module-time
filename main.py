@@ -807,7 +807,7 @@ def get_times():
 
     # Construccion
     m2: float = request.json['m2']
-    demolition_needed: bool = True if request.json['demolitions'] == 'yes' else False
+    demolition_needed: bool = request.json['demolitions']
     construction_times: str = request.json['constructions_times']
     construction_mod: str = request.json['construction_mod']
 
@@ -1029,6 +1029,7 @@ def save_times():
         - application/json
 
     required:
+
         - project_id
         - client_agility
         - construction_mod
@@ -1039,6 +1040,7 @@ def save_times():
         - weeks
         
     parameters:
+    
         - in: body
           name: body
           properties:
